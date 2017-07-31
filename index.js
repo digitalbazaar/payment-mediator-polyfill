@@ -5,4 +5,6 @@
  */
 'use strict';
 
+export {PaymentManager} from './PaymentManager';
+
 // TODO:

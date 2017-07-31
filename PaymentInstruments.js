@@ -14,6 +14,12 @@ export class PaymentInstruments {
     }
 
     this._origin = origin;
+
+    // TODO: need to include registration URL as well...
+    //   perhaps a `_key()` method that combines instrumentKey with
+    //   registration URL is necessary? ... need to see what the current
+    //   status of the work is with respect to supporting multiple service
+    //   workers from the same origin w/same payment instrument keys
     this._storage = localforage.createInstance({
       name: 'paymentInstruments_' + origin
     });
@@ -47,6 +53,8 @@ export class PaymentInstruments {
   async set(instrumentKey, details) {
     _validateInstrumentKey(instrumentKey);
     _validatePaymentInstrument(details);
+    await this._storage.origins.setItem(
+      this.origin, 'paymentInstruments_' + this.origin);
     await this._storage.setItem(instrumentKey, details);
     return;
   }

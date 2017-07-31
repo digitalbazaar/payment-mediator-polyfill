@@ -19,6 +19,8 @@ export class PaymentInstruments {
     });
   }
 
+  // TODO: do we do a `paymenthandler` permission check on each of these?
+
   async delete(instrumentKey) {
     const hasInstrument = await this.has(instrumentKey);
     if(!hasInstrument) {

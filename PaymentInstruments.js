@@ -8,24 +8,17 @@
 import * as localforage from 'localforage';
 
 export class PaymentInstruments {
-  constructor(origin) {
-    if(!(origin && typeof origin === 'string')) {
-      throw new TypeError('"origin" must be a non-empty string.');
+  constructor(url) {
+    if(!(url && typeof url === 'string')) {
+      throw new TypeError('"url" must be a non-empty string.');
     }
 
-    this._origin = origin;
-
-    // TODO: need to include registration URL as well...
-    //   perhaps a `_key()` method that combines instrumentKey with
-    //   registration URL is necessary? ... need to see what the current
-    //   status of the work is with respect to supporting multiple service
-    //   workers from the same origin w/same payment instrument keys
     this._storage = localforage.createInstance({
-      name: 'paymentInstruments_' + origin
+      name: 'paymentInstruments_' + url
     });
   }
 
-  // TODO: do we do a `paymenthandler` permission check on each of these?
+  // TODO: do we need a `paymenthandler` permission check on each of these?
 
   async delete(instrumentKey) {
     const hasInstrument = await this.has(instrumentKey);
@@ -53,13 +46,33 @@ export class PaymentInstruments {
   async set(instrumentKey, details) {
     _validateInstrumentKey(instrumentKey);
     _validatePaymentInstrument(details);
-    await this._storage.origins.setItem(
-      this.origin, 'paymentInstruments_' + this.origin);
     await this._storage.setItem(instrumentKey, details);
     return;
   }
 
   async clear() {
+    return this._storage.clear();
+  }
+
+  /**
+   * Return all PaymentInstruments that match the given PaymentRequest.
+   *
+   * @param request the PaymentRequest to check.
+   *
+   * @return a Promise that resolves to an array of all PaymentInstruments
+   *           that match the given PaymentRequest.
+   */
+  async _match(request) {
+    const matches = [];
+    await this._storage.iterate(value => {
+      // TODO: implement matching algorithm
+      matches.push(value);
+    });
+    return matches;
+  }
+
+  async _destroy() {
+    // TODO: use this._storage.dropInstance() instead (when available)
     return this._storage.clear();
   }
 }

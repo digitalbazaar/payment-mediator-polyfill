@@ -5,29 +5,26 @@
  */
 'use strict';
 
-import * as localforage from 'localforage';
-import {PermissionManager} from 'web-request-mediator';
+import {utils} from 'web-request-rpc';
+
+import {PaymentInstruments} from './PaymentInstruments';
 
 export class PaymentManager {
-  constructor(origin, {requestPermission = denyPermission} = {}) {
-    if(!(origin && typeof origin === 'string')) {
-      throw new TypeError('"origin" must be a non-empty string.');
-    }
-    if(requestPermission !== 'function') {
-      throw new TypeError('"requestPermission" must be a function.');
+  constructor(url, {permissionManager}) {
+    if(!(url && typeof url === 'string')) {
+      throw new TypeError('"url" must be a non-empty string.');
     }
 
-    this._origin = origin;
+    this._origin = utils.parseOrigin(url);
+    this._permissionManager = permissionManager;
 
-    this._permissionManager = new PermissionManager(
-      this.origin, {
-        request: (permissionDesc) => requestPermission()
-      });
-
-    this.paymentInstruments = new PaymentInstruments(origin);
+    this.paymentInstruments = new PaymentInstruments(url);
   }
 
-  // TODO: add `on('paymentrequest')` support here?
+  async _destroy() {
+    await this.paymentManager.paymentInstruments._destroy();
+    return this;
+  }
 
   /**
    * Requests that the user grant 'paymenthandler' permission to the current
@@ -37,11 +34,7 @@ export class PaymentManager {
    *           the new state of the permission
    *           (e.g. {state: 'granted'/'denied'})).
    */
-  static async requestPermission() {
+  async requestPermission() {
     return this._permissionManager.request({name: 'paymenthandler'});
   }
-}
-
-async function denyPermission() {
-  return {state: 'denied'};
 }

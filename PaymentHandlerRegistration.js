@@ -6,17 +6,32 @@
  */
 'use strict';
 
+import {utils} from 'web-request-rpc';
+
 import {PaymentManager} from './PaymentManager';
 
+// TODO: extends utils.EventEmitter
+
 export class PaymentHandlerRegistration {
-  constructor(origin) {
-    if(!(origin && typeof origin === 'string')) {
-      throw new TypeError('"origin" must be a non-empty string.');
+  constructor(url, {permissionManager}) {
+    if(!(url && typeof url === 'string')) {
+      throw new TypeError('"url" must be a non-empty string.');
     }
 
-    this._origin = origin;
-    this.paymentManager = new PaymentManager(origin);
+    this._url = url;
+    // TODO: is _origin required here?
+    this._origin = utils.parseUrl(url).origin;
+
+    this.paymentManager = new PaymentManager(url, permissionManager);
   }
 
-  // TODO: unregister method?
+  // TODO: add `on('paymentrequest')` support here
+
+  /**
+   * Destroys this payment handler registration.
+   */
+  async _destroy() {
+    await this.paymentManager._destroy();
+    return this;
+  }
 }

@@ -18,12 +18,7 @@ export class PaymentRequest {
       throw new TypeError('"show" must be a function.');
     }
 
-    this.origin = origin;
-    this.id = null;
-    this.methodData = null;
-    this.details = null;
-    this.options = null;
-
+    this._origin = origin;
     this._show = show;
 
     // map of request ID => pending payment request
@@ -55,8 +50,7 @@ export class PaymentRequest {
     }
 
     // TODO: call custom `show`
-    const response = await this.show();
-
+    const response = await this._show(request);
 
     // TODO: UI needs methods to call to send a `paymentrequest` event to
     //   the appropriate payment handler ... does that go here or in
@@ -73,18 +67,19 @@ export class PaymentRequest {
   // selected
   async _selectPaymentInstrument(paymentInstrument) {
     // TODO: emit `paymenrequest` event on appropriate payment handler
+    // await `respondWith` via web-request-rpc EventEmitter.promise primitive
   }
 
   // called by UI presenting `show` when user changes shipping address
   async _shippingAddressChange(details) {
     // TODO: emit PaymentRequestUpdateEvent with new details and
-    // await `updateWith` via web-request-rpc EventEmitter primitive
+    // await `updateWith` via web-request-rpc EventEmitter.promise primitive
   }
 
   // called by UI presenting `show` when user changes shipping option
   async _shippingOptionChange(details) {
     // TODO: emit PaymentRequestUpdateEvent with new details and
-    // await `updateWith` via web-request-rpc EventEmitter primitive
+    // await `updateWith` via web-request-rpc EventEmitter.promise primitive
   }
 
   async _matchPaymentInstruments() {

@@ -5,14 +5,10 @@
  */
 'use strict';
 
-import * as localforage from 'localforage';
-import {PermissionManager} from 'web-request-mediator';
+import {utils} from 'web-request-mediator';
 
 import {PaymentHandlers} from './PaymentHandlers';
 
-// TODO: this is the server-side of PaymentRequest ... working out the details
-//   for what needs to be here... essentially only once `show` is called will
-//   everything be transmitted
 export class PaymentRequest {
   constructor(origin, {show = abortRequest} = {}) {
     if(!(origin && typeof origin === 'string')) {
@@ -31,7 +27,7 @@ export class PaymentRequest {
     this._show = show;
 
     // map of request ID => pending payment request
-    this._pending = new Map();
+    this._requests = new Map();
   }
 
   async create({methodData, details, options} = {}) {
@@ -43,14 +39,25 @@ export class PaymentRequest {
     // TODO: validate details
     // TODO: validate options
 
-    // TODO: return payment request ID
+    // Note: `handle` is internal, NOT the same as `details.id`
+    const requestHandle = utils.uuidv4();
+    this._requests[requestHandle] = {methodData, details, options};
+    // TODO: set a timeout an expiration of the request or just let it live
+    //   as long as the page does?
+    return requestHandle;
   }
 
   async show(requestId) {
-    // TODO: find pending payment request
+    // find pending payment request
+    const request = this._requests[requestId];
+    if(!request) {
+      throw new Error('InvalidStateError');
+    }
 
     // TODO: call custom `show`
     const response = await this.show();
+
+
     // TODO: UI needs methods to call to send a `paymentrequest` event to
     //   the appropriate payment handler ... does that go here or in
     //   paymentManager?
@@ -62,19 +69,35 @@ export class PaymentRequest {
     // TODO: run validation like `create`
   }
 
-  // TODO: add method to trigger `paymentrequest` event on the appropriate
-  //   handler?
+  // called by UI presenting `show` once a payment instrument has been
+  // selected
+  async _selectPaymentInstrument(paymentInstrument) {
+    // TODO: emit `paymenrequest` event on appropriate payment handler
+  }
+
+  // called by UI presenting `show` when user changes shipping address
+  async _shippingAddressChange(details) {
+    // TODO: emit PaymentRequestUpdateEvent with new details and
+    // await `updateWith` via web-request-rpc EventEmitter primitive
+  }
+
+  // called by UI presenting `show` when user changes shipping option
+  async _shippingOptionChange(details) {
+    // TODO: emit PaymentRequestUpdateEvent with new details and
+    // await `updateWith` via web-request-rpc EventEmitter primitive
+  }
 
   async _matchPaymentInstruments() {
-    // get all payment handler origins
-    const origins = await new PaymentHandlers(this.origin)._getOrigins();
+    const self = this;
 
-    // TODO: run payment method filter algorithm over all payment instruments
-    //   from each origin ... potentially implement `._filter` or `._match` via
-    //   PaymentInstruments class ... and create a PaymentInstruments class
-    //   per `origin`? ... need to determine if PaymentInstruments are
-    //   further scoped by service workers or if they all share the same
-    //   paymentManager
+    // get all payment handler registrations
+    const registrations = await PaymentHandlers.getAllRegistrations();
+
+    // find all matching payment instruments
+    const promises = [];
+    registrations.forEach(r => promises.push(
+      r.paymentManager.paymentInstruments._match(self)));
+    return [...await Promise.all(promises)];
   }
 }
 

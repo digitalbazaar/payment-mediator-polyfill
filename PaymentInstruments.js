@@ -13,6 +13,7 @@ export class PaymentInstruments {
       throw new TypeError('"url" must be a non-empty string.');
     }
 
+    this._url = url;
     this._storage = localforage.createInstance({
       name: 'paymentInstruments_' + url
     });
@@ -55,18 +56,25 @@ export class PaymentInstruments {
   }
 
   /**
-   * Return all PaymentInstruments that match the given PaymentRequest.
+   * Return all PaymentInstruments that match the given PaymentRequest. The
+   * matches will be returned in an array with the tuples:
+   *
+   * {
+   *   paymentHandler: <url>,
+   *   paymentInstrument: <PaymentInstrument>
+   * }
    *
    * @param request the PaymentRequest to check.
    *
-   * @return a Promise that resolves to an array of all PaymentInstruments
-   *           that match the given PaymentRequest.
+   * @return a Promise that resolves to an array of payment handler and
+   *           PaymentInstrument tuples that match the given PaymentRequest.
    */
   async _match(request) {
+    const paymentHandler = this._url;
     const matches = [];
-    await this._storage.iterate(value => {
+    await this._storage.iterate(paymentInstrument => {
       // TODO: implement matching algorithm
-      matches.push(value);
+      matches.push({paymentHandler, paymentInstrument});
     });
     return matches;
   }

@@ -16,22 +16,15 @@ const ORIGIN_STORAGE = localforage.createInstance({
   name: 'paymentHandlerOrigins'
 });
 
-export class PaymentHandlers {
-  constructor(origin, {requestPermission = denyPermission} = {}) {
+export class PaymentHandlersService {
+  constructor(origin, {permissionManager} = {}) {
     if(!(origin && typeof origin === 'string')) {
       throw new TypeError('"origin" must be a non-empty string.');
     }
-    if(requestPermission !== 'function') {
-      throw new TypeError('"requestPermission" must be a function.');
-    }
-
     this._origin = origin;
 
     // manage permissions for this origin
-    this._permissionManager = new PermissionManager(
-      this._origin, {
-        request: (permissionDesc) => requestPermission()
-      });
+    this._permissionManager = permissionManager;
 
     // registrations are origin bound and can only be retrieved by
     // payment handler origins
@@ -51,7 +44,7 @@ export class PaymentHandlers {
     url = _normalizeUrl(url, this._origin);
 
     // ensure origin has `paymenthandler` permission
-    const status = await this._permissionManager.request(
+    const status = await this._permissionManager.query(
       {name: 'paymenthandler'});
     if(status !== 'granted') {
       throw new Error('Permission denied.');
@@ -69,7 +62,7 @@ export class PaymentHandlers {
     // TODO: could map `url` to a UUID or similar -- consider that
     //   `url` either needs to be canonicalized or mapped to avoid confusion
     await this._storage.setItem(url, true);
-    return new PaymentHandlerRegistration(url, this._permissionManager);
+    return url;
   }
 
   /**
@@ -83,11 +76,11 @@ export class PaymentHandlers {
   async unregister(url) {
     url = _normalizeUrl(url, this._origin);
     const registration = await this.get(url);
-    if(!registered) {
+    if(!registration) {
       return false;
     }
-    await registration._destroy();
-    await this._storage.removeItem(registered);
+    await PaymentInstrumentService._destroy(registration);
+    await this._storage.removeItem(registration);
     return true;
   }
 
@@ -104,7 +97,7 @@ export class PaymentHandlers {
     if(!this.hasRegistration(url)) {
       return null;
     }
-    return new PaymentHandlerRegistration(url, this._permissionManager);
+    return url;
   }
 
   /**
@@ -118,25 +111,37 @@ export class PaymentHandlers {
    */
   async hasRegistration(url) {
     url = _normalizeUrl(url, this._origin);
-    return await this._storage.get(url) === true;
+    return await this._storage.getItem(url) === true;
   }
 
   /**
-   * Gets all payment handler registrations for every origin.
+   * Return all payment handler URLs.
    *
-   * @return a Promise that resolves to an array of all registrations.
+   * @return a Promise that resolves to all registered payment handler URLs.
    */
-  static async _getAllRegistrations() {
+  static async _getAllRegistrations(request) {
+    // asynchronously get a list of promises where each will resolve to the
+    // registered payment handler URLs for a particular origin
     const registrations = [];
-    await ORIGIN_STORAGE.iterate(value => {
-      registrations.push(value);
+    const promises = [];
+    await ORIGIN_STORAGE.iterate(databaseName => {
+      // get origin's payment handler URLs
+      const storage = localforage.createInstance({name: databaseName});
+      const urls = [];
+      promises.push(storage.iterate(value, url => {
+        urls.push(url);
+      }).then(() => {
+        // append all registrations for the origin to `registrations`
+        registrations.push(...urls);
+      }));
     });
+    await Promise.all(promises);
     return registrations;
   }
 }
 
 function _normalizeUrl(url, origin) {
-  const parsed = parseUrl(url, origin);
+  const parsed = utils.parseUrl(url, origin);
   if(parsed.origin !== origin) {
     throw new Error(`Url "${url}" must have an origin of "${origin}"`);
   }

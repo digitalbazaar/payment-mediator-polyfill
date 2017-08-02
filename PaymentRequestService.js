@@ -1,5 +1,6 @@
 /*!
- * PaymentRequest polyfill.
+ * A PaymentRequestService provides the implementation for
+ * PaymentRequest instances on a particular remote origin.
  *
  * Copyright (c) 2017 Digital Bazaar, Inc. All rights reserved.
  */
@@ -7,9 +8,10 @@
 
 import {utils} from 'web-request-mediator';
 
-import {PaymentHandlers} from './PaymentHandlers';
+import {PaymentHandlersService} from './PaymentHandlersService';
+import {PaymentInstrumentsService} from './PaymentInstrumentsService';
 
-export class PaymentRequest {
+export class PaymentRequestService {
   constructor(origin, {show = abortRequest} = {}) {
     if(!(origin && typeof origin === 'string')) {
       throw new TypeError('"origin" must be a non-empty string.');
@@ -21,7 +23,9 @@ export class PaymentRequest {
     this._origin = origin;
     this._show = show;
 
-    // map of request ID => pending payment request
+    /* Note: This is a map of request "handle" => pending payment request. It
+      is currently implemented as an in-memory map. This means that only the
+      same page that created a PaymentRequest will be able to access it. */
     this._requests = new Map();
   }
 
@@ -42,12 +46,8 @@ export class PaymentRequest {
     return requestHandle;
   }
 
-  async show(requestId) {
-    // find pending payment request
-    const request = this._requests[requestId];
-    if(!request) {
-      throw new Error('InvalidStateError');
-    }
+  async show(requestHandle) {
+    const request = this._getPendingRequest(requestHandle);
 
     // TODO: call custom `show`
     const response = await this._show(request);
@@ -59,6 +59,19 @@ export class PaymentRequest {
     // TODO: return PaymentResponse
   }
 
+  async abort(requestHandle) {
+    const request = this._getPendingRequest(requestHandle);
+
+    // TODO: emit an AbortPaymentEvent
+    // TODO: return Promise that is fulfilled when payment is aborted and
+    //   rejected when it is not; if a payment handler has not yet been
+    //   engaged on the other end, abort will succeed; if a payment handler
+    //   has been engaged then if it has no abort payment event handler, abort
+    //   will fail but if it does, then whether or not it succeeds is up to
+    //   the payment handler (it will make a call on the event to indicate
+    //   whether or not abort was successful)
+  }
+
   async canMakePayment({methodData, details, options} = {}) {
     // TODO: run validation like `create`
   }
@@ -66,7 +79,7 @@ export class PaymentRequest {
   // called by UI presenting `show` once a payment instrument has been
   // selected
   async _selectPaymentInstrument(paymentInstrument) {
-    // TODO: emit `paymenrequest` event on appropriate payment handler
+    // TODO: emit `paymentrequest` event on appropriate payment handler
     // await `respondWith` via web-request-rpc EventEmitter.promise primitive
   }
 
@@ -86,13 +99,21 @@ export class PaymentRequest {
     const self = this;
 
     // get all payment handler registrations
-    const registrations = await PaymentHandlers.getAllRegistrations();
+    const registrations = await PaymentHandlersService._getAllRegistrations();
 
     // find all matching payment instruments
     const promises = [];
-    registrations.forEach(r => promises.push(
-      r.paymentManager.paymentInstruments._match(self)));
+    registrations.forEach(url => promises.push(
+      PaymentInstrumentsService._matchPaymentRequest(url, self)));
     return [...await Promise.all(promises)];
+  }
+
+  async _getPendingRequest(requestHandle) {
+    const request = this._requests[requestHandle];
+    if(!request) {
+      throw new Error('InvalidStateError');
+    }
+    return request;
   }
 }
 

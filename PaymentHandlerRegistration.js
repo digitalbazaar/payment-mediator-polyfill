@@ -27,6 +27,8 @@ export class PaymentHandlerRegistration {
 
   // TODO: add `on('paymentrequest')` support here
 
+  // TODO: add `on('abortpayment')` support here
+
   /**
    * Destroys this payment handler registration.
    */

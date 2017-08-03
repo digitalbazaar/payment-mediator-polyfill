@@ -70,21 +70,27 @@ export class PaymentRequestService {
   }
 
   async abort() {
-    const request = this._requestState;
-    if(!request) {
+    const requestState = this._requestState;
+    if(!requestState) {
       // TODO: or would it be more useful to just say "yes, aborted"?
       throw new DOMException(
         'The PaymentRequest is not in progress.', 'InvalidStateError');
     }
 
-    if(request.paymentHandler) {
-      if(request.paymentHandler.ready) {
+    if(requestState.paymentHandler) {
+      if(requestState.paymentHandler.ready) {
         // ask payment handler to abort
-        await request.paymentHandler.remote.abort();
+        await requestState.paymentHandler.api.abortPayment({
+          // FIXME: can we read window.top.location.origin? how should this
+          // best be implemented?
+          topLevelOrigin: requestState.paymentRequestOrigin,
+          paymentRequestOrigin: requestState.paymentRequestOrigin,
+          paymentRequestId: requestState.paymentRequest.details.id
+        });
       }
 
       // queue abort request to be handled by payment handler loader
-      const abortRequest = request.paymentHandler.abort = {
+      const abortRequest = requestState.paymentHandler.abort = {
         promise: new Promise((resolve, reject) => {
           abortRequest.resolve = resolve;
           abortRequest.reject = reject;
@@ -135,16 +141,14 @@ export class PaymentRequestService {
     // await `updateWith` via web-request-rpc EventEmitter.promise primitive
   }
 
-  async _matchPaymentInstruments() {
-    const self = this;
-
+  async _matchPaymentInstruments(paymentRequest) {
     // get all payment handler registrations
     const registrations = await PaymentHandlersService._getAllRegistrations();
 
     // find all matching payment instruments
     const promises = [];
     registrations.forEach(url => promises.push(
-      PaymentInstrumentsService._matchPaymentRequest(url, self)));
+      PaymentInstrumentsService._matchPaymentRequest(url, paymentRequest)));
     return [...await Promise.all(promises)];
   }
 }

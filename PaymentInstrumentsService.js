@@ -106,19 +106,19 @@ export class PaymentInstrumentsService {
    * }
    *
    * @param url the URL that identifies the payment handler to check.
-   * @param request the PaymentRequest to check.
+   * @param paymentRequest the PaymentRequest to check.
    *
    * @return a Promise that resolves to an array of payment handler and
    *           PaymentInstrument tuples that match the given PaymentRequest.
    */
-  static async _matchPaymentRequest(url, request) {
+  static async _matchPaymentRequest(url, paymentRequest) {
     const matches = [];
     const paymentHandler = url;
     const storage = localforage.createInstance({
       name: 'paymentInstruments_' + url
     });
     await storage.iterate((paymentInstrument, paymentInstrumentKey) => {
-      // TODO: implement matching algorithm
+      // TODO: implement matching algorithm and used `paymentRequest`
       matches.push({paymentHandler, paymentInstrumentKey, paymentInstrument});
     });
     return matches;

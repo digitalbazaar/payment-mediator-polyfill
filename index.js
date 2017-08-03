@@ -18,11 +18,11 @@ export async function load({requestPermission, showRequest}) {
     origin, {request: requestPermission});
   wrm.server.define('permissionManager', permissionManager);
 
-  wrm.server.define('PaymentInstruments', new PaymentInstrumentsService(
+  wrm.server.define('paymentInstruments', new PaymentInstrumentsService(
     origin, {permissionManager}));
-  wrm.server.define('PaymentHandlers', new PaymentHandlersService(
+  wrm.server.define('paymentHandlers', new PaymentHandlersService(
     origin, {permissionManager}));
-  wrm.server.define('PaymentRequest', new PaymentRequestService(
+  wrm.server.define('paymentRequest', new PaymentRequestService(
     origin, {show: showRequest});
 
   // connect to relying origin

@@ -101,6 +101,7 @@ export class PaymentInstrumentsService {
    *
    * {
    *   paymentHandler: <url>,
+   *   paymentInstrumentKey: <PaymentInstrument key>,
    *   paymentInstrument: <PaymentInstrument>
    * }
    *
@@ -116,9 +117,9 @@ export class PaymentInstrumentsService {
     const storage = localforage.createInstance({
       name: 'paymentInstruments_' + url
     });
-    await storage.iterate(paymentInstrument => {
+    await storage.iterate((paymentInstrument, paymentInstrumentKey) => {
       // TODO: implement matching algorithm
-      matches.push({paymentHandler, paymentInstrument});
+      matches.push({paymentHandler, paymentInstrumentKey, paymentInstrument});
     });
     return matches;
   }

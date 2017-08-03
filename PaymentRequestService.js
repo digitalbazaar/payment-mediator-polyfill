@@ -4,15 +4,16 @@
  *
  * Copyright (c) 2017 Digital Bazaar, Inc. All rights reserved.
  */
+/* global DOMException */
 'use strict';
 
-import {utils} from 'web-request-mediator';
+import * as rpc from 'web-request-rpc';
 
 import {PaymentHandlersService} from './PaymentHandlersService';
 import {PaymentInstrumentsService} from './PaymentInstrumentsService';
 
 export class PaymentRequestService {
-  constructor(origin, {show = abortRequest} = {}) {
+  constructor(origin, {show = _abortRequest, abort = async () => {}} = {}) {
     if(!(origin && typeof origin === 'string')) {
       throw new TypeError('"origin" must be a non-empty string.');
     }
@@ -22,14 +23,21 @@ export class PaymentRequestService {
 
     this._origin = origin;
     this._show = show;
+    this._abort = abort;
 
-    /* Note: This is a map of request "handle" => pending payment request. It
-      is currently implemented as an in-memory map. This means that only the
-      same page that created a PaymentRequest will be able to access it. */
-    this._requests = new Map();
+    /* Note: Only one PaymentRequest is permitted at a time. A more complex
+       implementation that tracks this PaymentRequest via `localForage` is
+       required to enforce this across windows, so right now the restriction
+       is actually one PaymentRequest per page. */
+    this._requestState = null;
   }
 
-  async create({methodData, details, options} = {}) {
+  async show({methodData, details, options}) {
+    if(this._requestState) {
+      throw new DOMException(
+        'Another PaymentRequest is already in progress.', 'NotAllowedError');
+    }
+
     // TODO: run validation here to ensure proper implementation of the
     //   client side of the polyfill; the client side code should have
     //   already done proper validation for the end user -- so in theory, this
@@ -38,49 +46,81 @@ export class PaymentRequestService {
     // TODO: validate details
     // TODO: validate options
 
-    // Note: `handle` is internal, NOT the same as `details.id`
-    const requestHandle = utils.uuidv4();
-    this._requests[requestHandle] = {methodData, details, options};
+    this._requestState = {
+      paymentRequestOrigin: this._origin,
+      paymentRequest: {methodData, details, options},
+      paymentHandler: null
+    };
+
     // TODO: set a timeout an expiration of the request or just let it live
     //   as long as the page does?
-    return requestHandle;
-  }
-
-  async show(requestHandle) {
-    const request = this._getPendingRequest(requestHandle);
 
     // TODO: call custom `show`
-    const response = await this._show(request);
+    let response;
+    try {
+      response = await this._show(this._requestState);
+      // TODO: validate response as a PaymentResponse
+    } catch(e) {
+      // always clear pending request
+      this._requestState = null;
+      throw e;
+    }
 
-    // TODO: UI needs methods to call to send a `paymentrequest` event to
-    //   the appropriate payment handler ... does that go here or in
-    //   paymentManager?
-
-    // TODO: return PaymentResponse
+    return response;
   }
 
-  async abort(requestHandle) {
-    const request = this._getPendingRequest(requestHandle);
+  async abort() {
+    const request = this._requestState;
+    if(!request) {
+      // TODO: or would it be more useful to just say "yes, aborted"?
+      throw new DOMException(
+        'The PaymentRequest is not in progress.', 'InvalidStateError');
+    }
 
-    // TODO: emit an AbortPaymentEvent
-    // TODO: return Promise that is fulfilled when payment is aborted and
-    //   rejected when it is not; if a payment handler has not yet been
-    //   engaged on the other end, abort will succeed; if a payment handler
-    //   has been engaged then if it has no abort payment event handler, abort
-    //   will fail but if it does, then whether or not it succeeds is up to
-    //   the payment handler (it will make a call on the event to indicate
-    //   whether or not abort was successful)
+    if(request.paymentHandler) {
+      if(request.paymentHandler.ready) {
+        // ask payment handler to abort
+        await request.paymentHandler.remote.abort();
+      }
+
+      // queue abort request to be handled by payment handler loader
+      const abortRequest = request.paymentHandler.abort = {
+        promise: new Promise((resolve, reject) => {
+          abortRequest.resolve = resolve;
+          abortRequest.reject = reject;
+        })
+      };
+      await abortRequest;
+    }
+
+    // at this point either no payment handler chosen yet or the payment
+    // handler accepted the abort request (otherwise this code path would
+    // not be hit because the abort request would be rejected)... so abort
+    // gracefully
+    return this._abort();
   }
 
   async canMakePayment({methodData, details, options} = {}) {
-    // TODO: run validation like `create`
+    // TODO: implement quota
+
+    // TODO: run validation like `show`
+
+    // TODO: do not set `this._requestState`, just process it
+    return true;
   }
 
   // called by UI presenting `show` once a payment instrument has been
   // selected
-  async _selectPaymentInstrument(paymentInstrument) {
-    // TODO: emit `paymentrequest` event on appropriate payment handler
-    // await `respondWith` via web-request-rpc EventEmitter.promise primitive
+  async _selectPaymentInstrument(selection) {
+    const requestState = this._requestState;
+    const {paymentHandler, paymentInstrumentKey} = selection;
+    // Note: If an error is raised, it may be recoverable such that the
+    //   `show` UI can allow the selection of another payment handler.
+    return _handlePaymentRequest({
+      requestState,
+      paymentHandler,
+      paymentInstrumentKey
+    });
   }
 
   // called by UI presenting `show` when user changes shipping address
@@ -107,17 +147,102 @@ export class PaymentRequestService {
       PaymentInstrumentsService._matchPaymentRequest(url, self)));
     return [...await Promise.all(promises)];
   }
-
-  async _getPendingRequest(requestHandle) {
-    const request = this._requests[requestHandle];
-    if(!request) {
-      throw new Error('InvalidStateError');
-    }
-    return request;
-  }
 }
 
-async function abortRequest() {
+/**
+ * Loads a payment handler to handle the given payment request.
+ *
+ * @param options the options to use:
+ *          requestState the payment request state information.
+ *          paymentHandler the payment handler URL.
+ *          paymentInstrumentKey the key for the selected payment instrument.
+ */
+async function _handlePaymentRequest(
+  {requestState, paymentHandler, paymentInstrumentKey}) {
+
+  requestState.paymentHandler = {};
+
+  const appContext = new rpc.WebAppContext();
+
+  // `responsePromise` will resolve when the payment handler provides
+  // a PaymentResponse or an error
+  const responsePromise = new Promise(async (resolve, reject) => {
+    // define interface payment handler will use to send PaymentResponse
+    appContext.server.define('paymentResponse', {
+      resolve,
+      reject,
+      // called by remote payment handler after receiving an `abort` request
+      abort(err) {
+        if(err) {
+          // TODO: convert vanilla object `err` into `Error`
+          return requestState.paymentHandler.abort.reject(err);
+        }
+        requestState.paymentHandler.abort.resolve();
+      }
+    });
+  });
+
+  // try to load payment handler
+  let loadError = null;
+  try {
+    const injector = await appContext.createWindow(paymentHandler);
+    // enable ability to make calls on remote payment handler
+    requestState.paymentHandler.api = injector.get('paymentHandler', {
+      functions: ['requestPayment', 'abortPayment']
+    });
+  } catch(e) {
+    loadError = e;
+  }
+
+  if(!loadError) {
+    // send payment request
+    try {
+      await requestState.paymentHandler.api.requestPayment({
+        // FIXME: can we read window.top.location.origin? how should this
+        // best be implemented?
+        topLevelOrigin: requestState.paymentRequestOrigin,
+        paymentRequestOrigin: requestState.paymentRequestOrigin,
+        paymentRequestId: requestState.paymentRequest.details.id,
+        // TODO: any filtering required?
+        methodData: requestState.paymentRequest.methodData,
+        total: requestState.paymentRequest.details.total,
+        // TODO: https://www.w3.org/TR/payment-handler/#dfn-modifiers-population-algorithm
+        modifiers: [],
+        instrumentKey: paymentInstrumentKey
+      });
+    } catch(e) {
+      loadError = e;
+    }
+  }
+
+  // if an abort request is already pending handle it
+  if(requestState.paymentHandler.abort) {
+    if(loadError) {
+      // payment handler did not load, abort request and throw error
+      requestState.paymentHandler.abort.resolve();
+      throw loadError;
+    }
+
+    try {
+      // pass abort request to payment handler
+      await requestState.paymentHandler.api.abortPayment({
+        // FIXME: can we read window.top.location.origin? how should this
+        // best be implemented?
+        topLevelOrigin: requestState.paymentRequestOrigin,
+        paymentRequestOrigin: requestState.paymentRequestOrigin,
+        paymentRequestId: requestState.paymentRequest.details.id
+      });
+    } catch(e) {
+      // abort request failed
+      return requestState.paymentHandler.abort.reject(e);
+    }
+  }
+
+  // wait for payment handler to respond
+  return responsePromise;
+}
+
+async function _abortRequest() {
   // TODO: called when `show` is not implemented and aborts the request
   throw new Error('PaymentRequest aborted.');
 }

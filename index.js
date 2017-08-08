@@ -27,15 +27,15 @@ export async function load({relyingOrigin, requestPermission, showRequest}) {
 
   // define custom server API
   const permissionManager = new PermissionManager(
-    origin, {request: requestPermission});
+    relyingOrigin, {request: requestPermission});
   wrm.server.define('permissionManager', permissionManager);
 
   wrm.server.define('paymentInstruments', new PaymentInstrumentsService(
-    origin, {permissionManager}));
+    relyingOrigin, {permissionManager}));
   wrm.server.define('paymentHandlers', new PaymentHandlersService(
-    origin, {permissionManager}));
+    relyingOrigin, {permissionManager}));
   wrm.server.define('paymentRequest', new PaymentRequestService(
-    origin, {show: showRequest}));
+    relyingOrigin, {show: showRequest}));
 
   // connect to relying origin
   const injector = await wrm.connect();

@@ -17,7 +17,7 @@ export class PaymentRequestService {
     if(!(origin && typeof origin === 'string')) {
       throw new TypeError('"origin" must be a non-empty string.');
     }
-    if(show !== 'function') {
+    if(typeof show !== 'function') {
       throw new TypeError('"show" must be a function.');
     }
 

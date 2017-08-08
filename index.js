@@ -5,7 +5,7 @@
  */
 'use strict';
 
-import {PermissionManager} from 'web-request-rpc';
+import {PermissionManager} from 'web-request-mediator';
 import {WebRequestMediator} from 'web-request-mediator';
 
 import {PaymentHandlersService} from './PaymentHandlersService';
@@ -22,8 +22,8 @@ export async function loadOnce(options) {
 
 // TODO: pass in revealing constructor methods like `requestPermission` for
 //   providing UI
-export async function load({origin, requestPermission, showRequest}) {
-  const wrm = new WebRequestMediator(origin);
+export async function load({relyingOrigin, requestPermission, showRequest}) {
+  const wrm = new WebRequestMediator(relyingOrigin);
 
   // define custom server API
   const permissionManager = new PermissionManager(

@@ -5,7 +5,7 @@
  */
 'use strict';
 
-import * as localforage from 'localforage';
+import localforage from 'localforage';
 import {utils} from 'web-request-rpc';
 import {PermissionManager} from 'web-request-mediator';
 

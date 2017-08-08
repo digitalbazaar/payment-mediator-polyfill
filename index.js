@@ -6,6 +6,7 @@
 'use strict';
 
 import {PermissionManager} from 'web-request-rpc';
+import {WebRequestMediator} from 'web-request-mediator';
 
 import {PaymentHandlersService} from './PaymentHandlersService';
 import {PaymentInstrumentsService} from './PaymentInstrumentsService';

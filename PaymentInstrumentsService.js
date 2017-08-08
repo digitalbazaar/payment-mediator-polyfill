@@ -6,7 +6,7 @@
  */
 'use strict';
 
-import * as localforage from 'localforage';
+import localforage from 'localforage';
 import {utils} from 'web-request-rpc';
 
 export class PaymentInstrumentsService {

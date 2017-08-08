@@ -5,12 +5,23 @@
  */
 'use strict';
 
-export {PaymentHandlers} from './PaymentHandlers';
+import {PermissionManager} from 'web-request-rpc';
+
+import {PaymentHandlersService} from './PaymentHandlersService';
+import {PaymentInstrumentsService} from './PaymentInstrumentsService';
+import {PaymentRequestService} from './PaymentRequestService';
+
+let loaded;
+export async function loadOnce(options) {
+  if(loaded) {
+    return loaded;
+  }
+  return loaded = await load(options);
+}
 
 // TODO: pass in revealing constructor methods like `requestPermission` for
 //   providing UI
-export async function load({requestPermission, showRequest}) {
-  const origin = 'https://bedrock.dev:18443';
+export async function load({origin, requestPermission, showRequest}) {
   const wrm = new WebRequestMediator(origin);
 
   // define custom server API
@@ -23,7 +34,7 @@ export async function load({requestPermission, showRequest}) {
   wrm.server.define('paymentHandlers', new PaymentHandlersService(
     origin, {permissionManager}));
   wrm.server.define('paymentRequest', new PaymentRequestService(
-    origin, {show: showRequest});
+    origin, {show: showRequest}));
 
   // connect to relying origin
   const injector = await wrm.connect();

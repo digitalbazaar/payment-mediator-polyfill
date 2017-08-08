@@ -9,8 +9,6 @@ import * as localforage from 'localforage';
 import {utils} from 'web-request-rpc';
 import {PermissionManager} from 'web-request-mediator';
 
-import {PaymentHandlerRegistration} from './PaymentHandlerRegistration';
-
 // tracks all origins that have registered payment handlers
 const ORIGIN_STORAGE = localforage.createInstance({
   name: 'paymentHandlerOrigins'
@@ -38,7 +36,8 @@ export class PaymentHandlersService {
    *
    * @param url the unique URL for the payment handler.
    *
-   * @return a Promise that resolves to the PaymentHandlerRegistration.
+   * @return a Promise that resolves to the normalized URL for the
+   *           payment handler.
    */
   async register(url) {
     url = _normalizeUrl(url, this._origin);
@@ -89,8 +88,8 @@ export class PaymentHandlersService {
    *
    * @param url the URL for the payment handler.
    *
-   * @return a Promise that resolves to the PaymentHandlerRegistration or
-   *           `null` if no such registration exists.
+   * @return a Promise that resolves to the normalized URL for the payment
+   *            handler or `null` if no such registration exists.
    */
   async getRegistration(url) {
     url = _normalizeUrl(url, this._origin);

@@ -23,6 +23,7 @@ export class PaymentHandlersService {
 
     // manage permissions for this origin
     this._permissionManager = permissionManager;
+    this._permissionManager._registerPermission('paymenthandler');
 
     // registrations are origin bound and can only be retrieved by
     // payment handler origins

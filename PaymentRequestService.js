@@ -154,7 +154,7 @@ export class PaymentRequestService {
     const promises = [];
     registrations.forEach(url => promises.push(
       PaymentInstrumentsService._matchPaymentRequest(url, paymentRequest)));
-    return [...await Promise.all(promises)];
+    return [].concat(...await Promise.all(promises));
   }
 }
 

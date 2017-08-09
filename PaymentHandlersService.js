@@ -120,7 +120,7 @@ export class PaymentHandlersService {
       // get origin's payment handler URLs
       const storage = localforage.createInstance({name: databaseName});
       const urls = [];
-      promises.push(storage.iterate(value, url => {
+      promises.push(storage.iterate((value, url) => {
         urls.push(url);
       }).then(() => {
         // append all registrations for the origin to `registrations`

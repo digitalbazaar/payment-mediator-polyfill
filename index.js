@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2017 Digital Bazaar, Inc. All rights reserved.
  */
+/* global navigator */
 'use strict';
 
 import {PermissionManager} from 'web-request-mediator';
@@ -30,12 +31,14 @@ export async function load({relyingOrigin, requestPermission, showRequest}) {
     relyingOrigin, {request: requestPermission});
   wrm.server.define('permissionManager', permissionManager);
 
+  const paymentRequestService = new PaymentRequestService(
+    relyingOrigin, {show: showRequest});
+
   wrm.server.define('paymentInstruments', new PaymentInstrumentsService(
     relyingOrigin, {permissionManager}));
   wrm.server.define('paymentHandlers', new PaymentHandlersService(
     relyingOrigin, {permissionManager}));
-  wrm.server.define('paymentRequest', new PaymentRequestService(
-    relyingOrigin, {show: showRequest}));
+  wrm.server.define('paymentRequest', paymentRequestService);
 
   // connect to relying origin
   const injector = await wrm.connect();
@@ -43,4 +46,22 @@ export async function load({relyingOrigin, requestPermission, showRequest}) {
   // TODO: define custom client API
   // paymentHandlers.setInjector(injector);
   // OR injector.define();
+
+  // TODO: move to another file and/or move out of paymentRequestService?
+  wrm.ui = {
+    async selectPaymentInstrument(selection) {
+      return paymentRequestService._selectPaymentInstrument(selection);
+    },
+    async shippingAddressChange(details) {
+      return paymentRequestService._shippingAddressChange(details);
+    },
+    async shippingOptionChange(details) {
+      return paymentRequestService._shippingOptionChange(details);
+    },
+    async matchPaymentInstruments(paymentRequest) {
+      return paymentRequestService._matchPaymentInstruments(paymentRequest);
+    }
+  };
+
+  navigator.paymentMediator = wrm;
 }

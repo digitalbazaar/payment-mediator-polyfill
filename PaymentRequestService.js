@@ -47,6 +47,9 @@ export class PaymentRequestService {
     // TODO: validate options
 
     this._requestState = {
+      topLevelOrigin: (window.location.ancestorOrigins &&
+        window.location.ancestorOrigins.length > 0) ?
+          window.location.ancestorOrigins[0] : this._origin,
       paymentRequestOrigin: this._origin,
       paymentRequest: {methodData, details, options},
       paymentHandler: null
@@ -84,9 +87,7 @@ export class PaymentRequestService {
       if(requestState.paymentHandler.ready) {
         // ask payment handler to abort
         await requestState.paymentHandler.api.abortPayment({
-          // FIXME: can we read window.top.location.origin? how should this
-          // best be implemented?
-          topLevelOrigin: requestState.paymentRequestOrigin,
+          topLevelOrigin: requestState.topLevelOrigin,
           paymentRequestOrigin: requestState.paymentRequestOrigin,
           paymentRequestId: requestState.paymentRequest.details.id
         });
@@ -205,9 +206,7 @@ async function _handlePaymentRequest(
     // send payment request
     try {
       await requestState.paymentHandler.api.requestPayment({
-        // FIXME: can we read window.top.location.origin? how should this
-        // best be implemented?
-        topLevelOrigin: requestState.paymentRequestOrigin,
+        topLevelOrigin: requestState.topLevelOrigin,
         paymentRequestOrigin: requestState.paymentRequestOrigin,
         paymentRequestId: requestState.paymentRequest.details.id,
         // TODO: any filtering required?
@@ -233,9 +232,7 @@ async function _handlePaymentRequest(
     try {
       // pass abort request to payment handler
       await requestState.paymentHandler.api.abortPayment({
-        // FIXME: can we read window.top.location.origin? how should this
-        // best be implemented?
-        topLevelOrigin: requestState.paymentRequestOrigin,
+        topLevelOrigin: requestState.topLevelOrigin,
         paymentRequestOrigin: requestState.paymentRequestOrigin,
         paymentRequestId: requestState.paymentRequest.details.id
       });

@@ -48,10 +48,9 @@ export class PaymentHandlersService {
     if(existing) {
       return existing;
     }
-
     // add new registration
     await ORIGIN_STORAGE.setItem(
-      this.origin, 'paymentHandlerRegistrations_' + this.origin);
+      this._origin, 'paymentHandlerRegistrations_' + this._origin);
     // TODO: could map `url` to a UUID or similar -- consider that
     //   `url` either needs to be canonicalized or mapped to avoid confusion
     await this._storage.setItem(url, true);
@@ -87,7 +86,7 @@ export class PaymentHandlersService {
    */
   async getRegistration(url) {
     url = _normalizeUrl(url, this._origin);
-    if(!this.hasRegistration(url)) {
+    if(!await this.hasRegistration(url)) {
       return null;
     }
     return url;

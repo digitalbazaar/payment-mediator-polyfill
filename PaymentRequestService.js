@@ -49,7 +49,8 @@ export class PaymentRequestService {
     this._requestState = {
       topLevelOrigin: (window.location.ancestorOrigins &&
         window.location.ancestorOrigins.length > 0) ?
-          window.location.ancestorOrigins[0] : this._origin,
+          window.location.ancestorOrigins[
+            window.location.ancestorOrigins.length - 1] : this._origin,
       paymentRequestOrigin: this._origin,
       paymentRequest: {methodData, details, options},
       paymentHandler: null

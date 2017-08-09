@@ -43,13 +43,6 @@ export class PaymentHandlersService {
   async register(url) {
     url = _normalizeUrl(url, this._origin);
 
-    // ensure origin has `paymenthandler` permission
-    const status = await this._permissionManager.query(
-      {name: 'paymenthandler'});
-    if(status !== 'granted') {
-      throw new Error('Permission denied.');
-    }
-
     // return existing registration
     const existing = await this.getRegistration(url);
     if(existing) {

@@ -28,13 +28,13 @@ export class PaymentInstrumentsService {
   }
 
   async get(url, instrumentKey) {
-    this._checkPermission();
+    await this._checkPermission();
     _validateInstrumentKey(instrumentKey);
     return this._getStorage(url).getItem(instrumentKey);
   }
 
   async keys(url) {
-    this._checkPermission();
+    await this._checkPermission();
     return this._getStorage(url).keys();
   }
 
@@ -43,15 +43,14 @@ export class PaymentInstrumentsService {
   }
 
   async set(url, instrumentKey, details) {
-    this._checkPermission();
+    await this._checkPermission();
     _validateInstrumentKey(instrumentKey);
     _validatePaymentInstrument(details);
     await this._getStorage(url).setItem(instrumentKey, details);
-    return;
   }
 
   async clear(url) {
-    this._checkPermission();
+    await this._checkPermission();
     return this._getStorage(url).clear();
   }
 
@@ -76,7 +75,7 @@ export class PaymentInstrumentsService {
     // ensure origin has `paymenthandler` permission
     const status = await this._permissionManager.query(
       {name: 'paymenthandler'});
-    if(status !== 'granted') {
+    if(status.state !== 'granted') {
       throw new Error('Permission denied.');
     }
   }

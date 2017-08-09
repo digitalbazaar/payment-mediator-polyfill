@@ -60,6 +60,9 @@ export class PaymentRequestService {
     try {
       response = await this._show(this._requestState);
       // TODO: validate response as a PaymentResponse
+      if(!response) {
+        throw new Error('Invalid PaymentResponse from payment handler.');
+      }
     } catch(e) {
       // always clear pending request
       this._requestState = null;

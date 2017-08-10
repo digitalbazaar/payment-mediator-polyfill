@@ -12,6 +12,9 @@ import * as rpc from 'web-request-rpc';
 import {PaymentHandlersService} from './PaymentHandlersService';
 import {PaymentInstrumentsService} from './PaymentInstrumentsService';
 
+const PAYMENT_ABORT_TIMEOUT = 40 * 1000;
+const PAYMENT_REQUEST_TIMEOUT = 0;
+
 export class PaymentRequestService {
   constructor(origin, {show = _abortRequest, abort = async () => {}} = {}) {
     if(!(origin && typeof origin === 'string')) {
@@ -127,11 +130,24 @@ export class PaymentRequestService {
     const {paymentHandler, paymentInstrumentKey} = selection;
     // Note: If an error is raised, it may be recoverable such that the
     //   `show` UI can allow the selection of another payment handler.
-    return _handlePaymentRequest({
+    const paymentHandlerResponse = await _handlePaymentRequest({
       requestState,
       paymentHandler,
       paymentInstrumentKey
     });
+    // TODO: validate PaymentHandlerResponse
+
+    // convert PaymentHandlerResponse into PaymentResponse
+    return {
+      requestId: requestState.paymentRequest.details.id,
+      methodName: paymentHandlerResponse.methodName,
+      details: paymentHandlerResponse.details,
+      //shippingAddress,
+      //shippingOption,
+      //payerName,
+      //payerEmail,
+      //payerPhone
+    };
   }
 
   // called by UI presenting `show` when user changes shipping address
@@ -165,31 +181,15 @@ export class PaymentRequestService {
  *          requestState the payment request state information.
  *          paymentHandler the payment handler URL.
  *          paymentInstrumentKey the key for the selected payment instrument.
+ *
+ * @return a Promise that resolves to a PaymentHandlerResponse.
  */
 async function _handlePaymentRequest(
   {requestState, paymentHandler, paymentInstrumentKey}) {
-
   requestState.paymentHandler = {};
 
+  console.log('loading payment handler: ' + paymentHandler);
   const appContext = new rpc.WebAppContext();
-
-  // `responsePromise` will resolve when the payment handler provides
-  // a PaymentResponse or an error
-  const responsePromise = new Promise(async (resolve, reject) => {
-    // define interface payment handler will use to send PaymentResponse
-    appContext.server.define('paymentResponse', {
-      resolve,
-      reject,
-      // called by remote payment handler after receiving an `abort` request
-      abort(err) {
-        if(err) {
-          // TODO: convert vanilla object `err` into `Error`
-          return requestState.paymentHandler.abort.reject(err);
-        }
-        requestState.paymentHandler.abort.resolve();
-      }
-    });
-  });
 
   // try to load payment handler
   let loadError = null;
@@ -197,39 +197,51 @@ async function _handlePaymentRequest(
     const injector = await appContext.createWindow(paymentHandler);
     // enable ability to make calls on remote payment handler
     requestState.paymentHandler.api = injector.get('paymentHandler', {
-      functions: ['requestPayment', 'abortPayment']
+      functions: [
+        {name: 'requestPayment', options: {timeout: PAYMENT_REQUEST_TIMEOUT}},
+        {name: 'abortPayment', options: {timeout: PAYMENT_ABORT_TIMEOUT}}
+      ]
     });
   } catch(e) {
     loadError = e;
   }
 
-  if(!loadError) {
-    // send payment request
-    try {
-      await requestState.paymentHandler.api.requestPayment({
-        topLevelOrigin: requestState.topLevelOrigin,
-        paymentRequestOrigin: requestState.paymentRequestOrigin,
-        paymentRequestId: requestState.paymentRequest.details.id,
-        // TODO: any filtering required?
-        methodData: requestState.paymentRequest.methodData,
-        total: requestState.paymentRequest.details.total,
-        // TODO: https://www.w3.org/TR/payment-handler/#dfn-modifiers-population-algorithm
-        modifiers: [],
-        instrumentKey: paymentInstrumentKey
-      });
-    } catch(e) {
-      loadError = e;
+  if(loadError) {
+    // failed to load payment handler, close out context
+    appContext.close();
+
+    // if an abort request was created while waiting for the WebAppContext
+    // to load, handle it
+    if(requestState.paymentHandler.abort) {
+      // payment handler did not load but abort was requested anyway, throw
+      // abort error instead
+      requestState.paymentHandler.abort.resolve();
+      throw new Error('Payment aborted');
     }
+    // can't obtain payment handler response because of load failure
+    throw loadError;
   }
 
-  // if an abort request is already pending handle it
-  if(requestState.paymentHandler.abort) {
-    if(loadError) {
-      // payment handler did not load, abort request and throw error
-      requestState.paymentHandler.abort.resolve();
-      throw loadError;
-    }
+  // no load error at this point, send payment request, but do not await it
+  // as we may also need to send an abort request
+  console.log('sending payment request...');
+  let responsePromise = requestState.paymentHandler.api.requestPayment({
+    topLevelOrigin: requestState.topLevelOrigin,
+    paymentRequestOrigin: requestState.paymentRequestOrigin,
+    paymentRequestId: requestState.paymentRequest.details.id,
+    // TODO: any filtering required?
+    methodData: requestState.paymentRequest.methodData,
+    total: requestState.paymentRequest.details.total,
+    // TODO: https://www.w3.org/TR/payment-handler/#dfn-modifiers-population-algorithm
+    modifiers: [],
+    instrumentKey: paymentInstrumentKey
+  });
 
+  // if an abort request was created while we were loading the payment handler,
+  // then handle it now that the payment request has been sent (we don't know
+  // if the payment handler supports abort -- so we must always send the
+  // payment request first)
+  if(requestState.paymentHandler.abort) {
     try {
       // pass abort request to payment handler
       await requestState.paymentHandler.api.abortPayment({
@@ -237,14 +249,23 @@ async function _handlePaymentRequest(
         paymentRequestOrigin: requestState.paymentRequestOrigin,
         paymentRequestId: requestState.paymentRequest.details.id
       });
+      requestState.paymentHandler.abort.resolve();
     } catch(e) {
       // abort request failed
-      return requestState.paymentHandler.abort.reject(e);
+      requestState.paymentHandler.abort.reject(e);
     }
   }
 
-  // wait for payment handler to respond
-  return responsePromise;
+  // now await payment handler response
+  let paymentHandlerResponse;
+  try {
+    paymentHandlerResponse = await responsePromise;
+  } catch(e) {
+    appContext.close();
+    throw e;
+  }
+  appContext.close();
+  return paymentHandlerResponse;
 }
 
 async function _abortRequest() {

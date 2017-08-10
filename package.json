@@ -23,7 +23,9 @@
   },
   "bedrock": {
     "browserDependencies": [
-      "localforage"
+      "localforage",
+      "web-request-rpc",
+      "web-request-mediator"
     ]
   }
 }

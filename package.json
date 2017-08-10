@@ -18,8 +18,8 @@
   "homepage": "https://github.com/digitalbazaar/payment-mediator-polyfill",
   "dependencies": {
     "localforage": "^1.5.0",
-    "web-request-rpc": "^0.0.1",
-    "web-request-mediator": "^0.0.1"
+    "web-request-rpc": "^0.0.2",
+    "web-request-mediator": "^0.0.2"
   },
   "bedrock": {
     "browserDependencies": [

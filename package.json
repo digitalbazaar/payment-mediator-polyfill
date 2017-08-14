@@ -19,7 +19,7 @@
   "dependencies": {
     "localforage": "^1.5.0",
     "web-request-rpc": "^0.0.2",
-    "web-request-mediator": "^0.0.3"
+    "web-request-mediator": "^0.0.4"
   },
   "bedrock": {
     "browserDependencies": [

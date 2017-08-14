@@ -8,8 +8,8 @@
 'use strict';
 
 import * as rpc from 'web-request-rpc';
+import {WebRequestHandlersService} from 'web-request-mediator';
 
-import {PaymentHandlersService} from './PaymentHandlersService';
 import {PaymentInstrumentsService} from './PaymentInstrumentsService';
 
 const PAYMENT_ABORT_TIMEOUT = 40 * 1000;
@@ -164,7 +164,8 @@ export class PaymentRequestService {
 
   async _matchPaymentInstruments(paymentRequest) {
     // get all payment handler registrations
-    const registrations = await PaymentHandlersService._getAllRegistrations();
+    const registrations = await WebRequestHandlersService
+      ._getAllRegistrations('payment');
 
     // find all matching payment instruments
     const promises = [];

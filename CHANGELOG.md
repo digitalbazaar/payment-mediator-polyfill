@@ -1,5 +1,10 @@
 # payment-mediator-polyfill ChangeLog
 
+## 0.0.5 - 2017-08-14
+
+### Changed
+- Use generic `WebRequestHandlersService`.
+
 ## 0.0.4 - 2017-08-10
 
 ### Changed

@@ -38,8 +38,7 @@ export async function load({relyingOrigin, requestPermission, showRequest}) {
     relyingOrigin, {permissionManager});
   paymentHandlersService.addEventListener('unregister', async event => {
     if(event.requestType === 'payment') {
-      event.waitUntil(
-        PaymentInstrumentsService._destroy(event.registration));
+      event.waitUntil(PaymentInstrumentsService._destroy(event.registration));
     }
   });
 

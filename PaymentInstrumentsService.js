@@ -6,97 +6,23 @@
  */
 'use strict';
 
-import localforage from 'localforage';
-import {utils} from 'web-request-rpc';
+import {SimpleContainerService} from 'web-request-mediator';
 
-export class PaymentInstrumentsService {
-  constructor(origin, {permissionManager}) {
-    if(!(origin && typeof origin === 'string')) {
-      throw new TypeError('"origin" must be a non-empty string.');
-    }
-    this._origin = origin;
-    this._permissionManager = permissionManager;
-  }
-
-  async delete(url, instrumentKey) {
-    const hasInstrument = await this.has(instrumentKey);
-    if(!hasInstrument) {
-      return false;
-    }
-    await this._getStorage(url).removeItem(instrumentKey);
-    return true;
-  }
-
-  async get(url, instrumentKey) {
-    await this._checkPermission();
-    _validateInstrumentKey(instrumentKey);
-    return this._getStorage(url).getItem(instrumentKey);
-  }
-
-  async keys(url) {
-    await this._checkPermission();
-    return this._getStorage(url).keys();
-  }
-
-  async has(url, instrumentKey) {
-    return await this.get(url, instrumentKey) !== null;
-  }
-
-  async set(url, instrumentKey, details) {
-    await this._checkPermission();
-    _validateInstrumentKey(instrumentKey);
-    _validatePaymentInstrument(details);
-    await this._getStorage(url).setItem(instrumentKey, details);
-  }
-
-  async clear(url) {
-    await this._checkPermission();
-    return this._getStorage(url).clear();
-  }
-
-  /**
-   * Gets the PaymentInstrument storage API for a particular payment handler
-   * after a same remote origin check.
-   *
-   * @param url the URL for the payment handler.
-   *
-   * @return the storage API.
-   */
-  _getStorage(url) {
-    utils.isValidOrigin(url, this._origin);
-    return PaymentInstrumentsService._getStorage(url);
-  }
-
-  /**
-   * Checks to make sure that the remote origin has `paymenthandler`
-   * permission.
-   */
-  async _checkPermission() {
-    // ensure origin has `paymenthandler` permission
-    const status = await this._permissionManager.query(
-      {name: 'paymenthandler'});
-    if(status.state !== 'granted') {
-      throw new Error('Permission denied.');
-    }
-  }
-
-  /**
-   * Gets the PaymentInstrument storage API for a particular payment handler
-   * WITHOUT a same remote origin check.
-   *
-   * @param url the URL for the payment handler.
-   *
-   * @return the storage API.
-   */
-  static _getStorage(url) {
-    return localforage.createInstance({
-      name: 'paymentInstruments_' + url
+export class PaymentInstrumentsService extends SimpleContainerService {
+  constructor(relyingOrigin, {permissionManager}) {
+    super(relyingOrigin, {
+      itemType: 'paymentInstrument',
+      permissionManager,
+      requiredPermission: 'paymenthandler',
+      validateKey: _validateInstrumentKey,
+      validateItem: _validatePaymentInstrument
     });
   }
 
   /**
-   * Return all PaymentInstruments for a payment handler that match the given
-   * PaymentRequest. The matches will be returned in an array with the tuples:
+   * Return all match objects for all PaymentInstruments for a payment handler
+   * that match the given PaymentRequest. The matches will be returned in an
+   * array with the tuples:
    *
    * {
    *   paymentHandler: <url>,
@@ -111,26 +37,19 @@ export class PaymentInstrumentsService {
    *           PaymentInstrument tuples that match the given PaymentRequest.
    */
   static async _matchPaymentRequest(url, paymentRequest) {
-    const matches = [];
-    const paymentHandler = url;
-    const storage = localforage.createInstance({
-      name: 'paymentInstruments_' + url
+    return SimpleContainerService._match(
+      url, 'paymentInstrument', ({handler, key, item}) => {
+      // TODO: implement matching algorithm using `paymentRequest`
+      return {
+        paymentHandler: handler,
+        paymentInstrumentKey: key,
+        paymentInstrument: item
+      };
     });
-    await storage.iterate((paymentInstrument, paymentInstrumentKey) => {
-      // TODO: implement matching algorithm and used `paymentRequest`
-      matches.push({paymentHandler, paymentInstrumentKey, paymentInstrument});
-    });
-    return matches;
   }
 
-  /**
-   * Destroys PaymentInstrument storage for a payment handler.
-   *
-   * @param url the URL that identifies the payment handler.
-   */
   static async _destroy(url) {
-    // TODO: use _getStorage(url).dropInstance() instead (when available)
-    return this._getStorage(url).clear();
+    return SimpleContainerService._destroy(url, 'paymentInstrument');
   }
 }
 

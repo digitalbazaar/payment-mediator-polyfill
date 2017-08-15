@@ -70,10 +70,9 @@ export class PaymentRequestService {
       if(!response) {
         throw new Error('Invalid PaymentResponse from payment handler.');
       }
-    } catch(e) {
+    } finally {
       // always clear pending request
       this._requestState = null;
-      throw e;
     }
 
     return response;
@@ -261,11 +260,10 @@ async function _handlePaymentRequest(
   let paymentHandlerResponse;
   try {
     paymentHandlerResponse = await responsePromise;
-  } catch(e) {
+  } finally {
     appContext.close();
-    throw e;
   }
-  appContext.close();
+
   return paymentHandlerResponse;
 }
 

@@ -8,10 +8,12 @@
 
 import {SimpleContainerService} from 'web-request-mediator';
 
+const ITEM_TYPE = 'paymentInstrument';
+
 export class PaymentInstrumentsService extends SimpleContainerService {
   constructor(relyingOrigin, {permissionManager}) {
     super(relyingOrigin, {
-      itemType: 'paymentInstrument',
+      itemType: ITEM_TYPE,
       permissionManager,
       requiredPermission: 'paymenthandler',
       validateKey: _validateInstrumentKey,
@@ -38,7 +40,7 @@ export class PaymentInstrumentsService extends SimpleContainerService {
    */
   static async _matchPaymentRequest(url, paymentRequest) {
     return SimpleContainerService._match(
-      url, 'paymentInstrument', ({handler, key, item}) => {
+      url, ITEM_TYPE, ({handler, key, item}) => {
       // TODO: implement matching algorithm using `paymentRequest`
       return {
         paymentHandler: handler,
@@ -49,7 +51,7 @@ export class PaymentInstrumentsService extends SimpleContainerService {
   }
 
   static async _destroy(url) {
-    return SimpleContainerService._destroy(url, 'paymentInstrument');
+    return SimpleContainerService._destroy(url, ITEM_TYPE);
   }
 }
 

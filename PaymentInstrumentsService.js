@@ -22,6 +22,25 @@ export class PaymentInstrumentsService extends SimpleContainerService {
   }
 
   /**
+   * Gets a PaymentInstrument by its payment handler URL and its key.
+   *
+   * @param url the payment handler URL.
+   * @param key the PaymentInstrument key.
+   *
+   * @return a Promise that resolves to the PaymentInstrument or `null`.
+   */
+  async get(url, key) {
+    const instrument = await super.get(url, key);
+    if(instrument) {
+      // do not return fetched images
+      instrument.icons.forEach(icon => {
+        delete icon.fetchedImage;
+      });
+    }
+    return instrument;
+  }
+
+  /**
    * Return all match objects for all PaymentInstruments for a payment handler
    * that match the given PaymentRequest. The matches will be returned in an
    * array with the tuples:
@@ -92,6 +111,7 @@ function _validateImageObject(imageObject) {
   if(typeof imageObject.type !== 'string') {
     throw new TypeError('"icon.type" must be a string.');
   }
+  // TODO: ensure `imageObject.fetchedImage` is set and contains a data URL
 }
 
 function _validatePaymentMethod(paymentMethod) {

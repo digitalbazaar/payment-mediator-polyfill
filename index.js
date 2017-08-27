@@ -20,9 +20,13 @@ export async function loadOnce(options) {
   return loaded = await load(options);
 }
 
-// TODO: pass in revealing constructor methods like `requestPermission` for
-//   providing UI
-export async function load({relyingOrigin, requestPermission, showRequest}) {
+// TODO: document
+export async function load({
+  relyingOrigin,
+  requestPermission,
+  showRequest,
+  customizeHandlerWindow
+}) {
   const wrm = new WebRequestMediator(relyingOrigin);
 
   // define custom server API
@@ -32,7 +36,7 @@ export async function load({relyingOrigin, requestPermission, showRequest}) {
   wrm.server.define('permissionManager', permissionManager);
 
   const paymentRequestService = new PaymentRequestService(
-    relyingOrigin, {show: showRequest});
+    relyingOrigin, {show: showRequest, customizeHandlerWindow});
 
   const paymentHandlersService = new WebRequestHandlersService(
     relyingOrigin, {permissionManager});
@@ -49,10 +53,6 @@ export async function load({relyingOrigin, requestPermission, showRequest}) {
 
   // connect to relying origin
   const injector = await wrm.connect();
-
-  // TODO: define custom client API
-  // paymentHandlers.setInjector(injector);
-  // OR injector.define();
 
   // TODO: move to another file and/or move out of paymentRequestService?
   wrm.ui = {

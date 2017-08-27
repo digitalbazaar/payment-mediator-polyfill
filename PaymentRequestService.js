@@ -16,17 +16,22 @@ const PAYMENT_ABORT_TIMEOUT = 40 * 1000;
 const PAYMENT_REQUEST_TIMEOUT = 0;
 
 export class PaymentRequestService {
-  constructor(origin, {show = _abortRequest, abort = async () => {}} = {}) {
-    if(!(origin && typeof origin === 'string')) {
-      throw new TypeError('"origin" must be a non-empty string.');
+  constructor(relyingOrigin, {
+    show = _abortRequest,
+    abort = async () => {},
+    customizeHandlerWindow = null,
+  } = {}) {
+    if(!(relyingOrigin && typeof relyingOrigin === 'string')) {
+      throw new TypeError('"relyingOrigin" must be a non-empty string.');
     }
     if(typeof show !== 'function') {
       throw new TypeError('"show" must be a function.');
     }
 
-    this._origin = origin;
+    this._relyingOrigin = relyingOrigin;
     this._show = show;
     this._abort = abort;
+    this._customizeHandlerWindow = customizeHandlerWindow;
 
     /* Note: Only one PaymentRequest is permitted at a time. A more complex
        implementation that tracks this PaymentRequest via `localForage` is
@@ -59,10 +64,6 @@ export class PaymentRequestService {
       paymentHandler: null
     };
 
-    // TODO: set a timeout an expiration of the request or just let it live
-    //   as long as the page does?
-
-    // TODO: call custom `show`
     let response;
     try {
       response = await this._show(this._requestState);
@@ -126,11 +127,13 @@ export class PaymentRequestService {
   // selected
   async _selectPaymentInstrument(selection) {
     const requestState = this._requestState;
+    const customizeHandlerWindow = this._customizeHandlerWindow;
     const {paymentHandler, paymentInstrumentKey} = selection;
     // Note: If an error is raised, it may be recoverable such that the
     //   `show` UI can allow the selection of another payment handler.
     const paymentHandlerResponse = await _handlePaymentRequest({
       requestState,
+      customizeHandlerWindow,
       paymentHandler,
       paymentInstrumentKey
     });
@@ -179,13 +182,18 @@ export class PaymentRequestService {
  *
  * @param options the options to use:
  *          requestState the payment request state information.
+ *          customizeHandlerWindow a function to customize the handler window.
  *          paymentHandler the payment handler URL.
  *          paymentInstrumentKey the key for the selected payment instrument.
  *
  * @return a Promise that resolves to a PaymentHandlerResponse.
  */
-async function _handlePaymentRequest(
-  {requestState, paymentHandler, paymentInstrumentKey}) {
+async function _handlePaymentRequest({
+  requestState,
+  customizeHandlerWindow,
+  paymentHandler,
+  paymentInstrumentKey
+}) {
   requestState.paymentHandler = {};
 
   console.log('loading payment handler: ' + paymentHandler);
@@ -194,7 +202,9 @@ async function _handlePaymentRequest(
   // try to load payment handler
   let loadError = null;
   try {
-    const injector = await appContext.createWindow(paymentHandler);
+    const injector = await appContext.createWindow(paymentHandler, {
+      customize: customizeHandlerWindow
+    });
     // enable ability to make calls on remote payment handler
     requestState.paymentHandler.api = injector.get('paymentHandler', {
       functions: [
@@ -225,7 +235,7 @@ async function _handlePaymentRequest(
   // no load error at this point, send payment request, but do not await it
   // as we may also need to send an abort request
   console.log('sending payment request...');
-  let responsePromise = requestState.paymentHandler.api.requestPayment({
+  const responsePromise = requestState.paymentHandler.api.requestPayment({
     topLevelOrigin: requestState.topLevelOrigin,
     paymentRequestOrigin: requestState.paymentRequestOrigin,
     paymentRequestId: requestState.paymentRequest.details.id,

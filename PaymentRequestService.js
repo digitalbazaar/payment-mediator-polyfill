@@ -55,11 +55,8 @@ export class PaymentRequestService {
     // TODO: validate options
 
     this._requestState = {
-      topLevelOrigin: (window.location.ancestorOrigins &&
-        window.location.ancestorOrigins.length > 0) ?
-          window.location.ancestorOrigins[
-            window.location.ancestorOrigins.length - 1] : this._origin,
-      paymentRequestOrigin: this._origin,
+      topLevelOrigin: getTopLevelOrigin(this._relyingOrigin),
+      paymentRequestOrigin: this._relyingOrigin,
       paymentRequest: {methodData, details, options},
       paymentHandler: null
     };
@@ -275,6 +272,13 @@ async function _handlePaymentRequest({
   }
 
   return paymentHandlerResponse;
+}
+
+function getTopLevelOrigin(relyingOrigin) {
+  return (window.location.ancestorOrigins &&
+    window.location.ancestorOrigins.length > 0) ?
+      window.location.ancestorOrigins[
+        window.location.ancestorOrigins.length - 1] : relyingOrigin;
 }
 
 async function _abortRequest() {

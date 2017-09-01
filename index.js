@@ -9,8 +9,8 @@
 import {PermissionManager, WebRequestHandlersService, WebRequestMediator} from
   'web-request-mediator';
 
-import {PaymentInstrumentsService} from './PaymentInstrumentsService';
-import {PaymentRequestService} from './PaymentRequestService';
+import {PaymentInstrumentsService} from './PaymentInstrumentsService.js';
+import {PaymentRequestService} from './PaymentRequestService.js';
 
 let loaded;
 export async function loadOnce(options) {

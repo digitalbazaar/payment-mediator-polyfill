@@ -10,7 +10,7 @@
 import * as rpc from 'web-request-rpc';
 import {WebRequestHandlersService} from 'web-request-mediator';
 
-import {PaymentInstrumentsService} from './PaymentInstrumentsService';
+import {PaymentInstrumentsService} from './PaymentInstrumentsService.js';
 
 const PAYMENT_ABORT_TIMEOUT = 40 * 1000;
 const PAYMENT_REQUEST_TIMEOUT = 0;

@@ -25,6 +25,7 @@ export async function load({
   relyingOrigin,
   requestPermission,
   showRequest,
+  abortRequest,
   customizeHandlerWindow
 }) {
   const wrm = new WebRequestMediator(relyingOrigin);
@@ -36,7 +37,11 @@ export async function load({
   wrm.server.define('permissionManager', permissionManager);
 
   const paymentRequestService = new PaymentRequestService(
-    relyingOrigin, {show: showRequest, customizeHandlerWindow});
+    relyingOrigin, {
+      show: showRequest,
+      abort: abortRequest,
+      customizeHandlerWindow
+    });
 
   const paymentHandlersService = new WebRequestHandlersService(
     relyingOrigin, {permissionManager});

@@ -43,7 +43,7 @@ export class PaymentRequestService {
   async show({methodData, details, options}) {
     if(this._requestState) {
       throw new DOMException(
-        'Another PaymentRequest is already in progress.', 'NotAllowedError');
+        'Another PaymentRequest is already in progress.', 'AbortError');
     }
 
     // TODO: run validation here to ensure proper implementation of the

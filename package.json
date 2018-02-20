@@ -1,6 +1,6 @@
 {
   "name": "payment-mediator-polyfill",
-  "version": "0.1.4",
+  "version": "0.1.5-0",
   "description": "Payment Mediator Polyfill",
   "main": "index.js",
   "repository": {

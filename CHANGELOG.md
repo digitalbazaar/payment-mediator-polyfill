@@ -1,5 +1,7 @@
 # payment-mediator-polyfill ChangeLog
 
+## 0.1.4 - 2018-02-20
+
 ### Changed
 - Update web-request-rpc dependency.
 

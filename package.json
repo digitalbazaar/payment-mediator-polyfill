@@ -12,6 +12,7 @@
     "email": "support@digitalbazaar.com",
     "url": "http://digitalbazaar.com"
   },
+  "license": "BSD-3-clause",
   "bugs": {
     "url": "https://github.com/digitalbazaar/payment-mediator-polyfill/issues"
   },
